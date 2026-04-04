@@ -18,3 +18,9 @@ logs/
 docker-compose.yml
 cronjobs
 .DS_Store
+.github/
+.idea/
+.venv/
+__pycache__/
+*.iml
+.git/
