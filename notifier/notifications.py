@@ -1,0 +1,32 @@
+"""Firebase Cloud Messaging (FCM) notification handling."""
+from firebase_admin import messaging
+
+
+def send_fcm_notification(tokens, title, body, image_url, data):
+    """Send FCM notification to multiple devices with high priority settings."""
+    try:
+        # Message configuration, including high-priority settings
+        msg = messaging.MulticastMessage(
+            notification=messaging.Notification(
+                title=title,
+                body=body,
+                image=image_url
+            ),
+            data=data,
+            tokens=tokens,
+            android=messaging.AndroidConfig(
+                priority='high',
+                notification=messaging.AndroidNotification(sound='default')
+            ),
+            apns=messaging.APNSConfig(
+                payload=messaging.APNSPayload(aps=messaging.Aps(content_available=True, sound='default')),
+                headers={'apns-priority': '10'}
+            )
+        )
+
+        # New function for v7+: send_each_for_multicast
+        response = messaging.send_each_for_multicast(msg)
+        print(f"✅ Sent {response.success_count} notifications. Errors: {response.failure_count}")
+
+    except Exception as e:
+        print(f"❌ FCM Sending Error: {e}")
