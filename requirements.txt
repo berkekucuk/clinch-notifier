@@ -1,2 +1,2 @@
-firebase-admin
-supabase
+firebase-admin==7.4.0
+supabase==2.29.0
