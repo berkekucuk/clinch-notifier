@@ -7,15 +7,11 @@ class SupabaseManager:
         self.client = create_client(url, key)
 
     def get_tokens_for_fight(self, fight_id):
-        """Find the user_ids subscribed to notifications for this fight."""
-        res = self.client.table("user_fight_notifications").select("user_id").eq("fight_id", fight_id).execute()
-        u_ids = [i['user_id'] for i in res.data]
-        if not u_ids:
-            return []
-
-        # Fetch FCM tokens for these users
-        t_res = self.client.table("user_device_tokens").select("fcm_token").in_("user_id", u_ids).execute()
-        return [t['fcm_token'] for t in t_res.data]
+        """Find the tokens subscribed to notifications for this fight using RPC."""
+        res = self.client.rpc('get_tokens_by_fight', {'p_fight_id': fight_id}) \
+            .range(0, 4999) \
+            .execute()
+        return [t['fcm_token'] for t in res.data] if res.data else []
 
     def get_fight_result_details(self, fight_id):
         """Get fight result details including winner and loser or draw status."""
