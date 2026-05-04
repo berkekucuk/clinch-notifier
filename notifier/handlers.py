@@ -1,47 +1,41 @@
 """Event handlers for fight notifications."""
 import time
-from .supabase_client import (
-    get_tokens_for_fight,
-    get_fight_result_details,
-    get_fight_matchup_names,
-    get_next_fight_id,
-)
 from .notifications import send_fcm_notification
 
 
-def handle_fight_result(supabase_url, headers, fight_data):
+def handle_fight_result(db_manager, fight_data):
     """
     Scenario 1: Send notification for the result of the finished fight.
     """
     fight_id = fight_data.get('fight_id')
-    current_tokens = get_tokens_for_fight(supabase_url, headers, fight_id)
+    current_tokens = db_manager.get_tokens_for_fight(fight_id)
 
     if current_tokens:
-        f1_name, f2_name, result = get_fight_result_details(supabase_url, headers, fight_id)
+        f1_name, f2_name, result = db_manager.get_fight_result_details(fight_id)
 
         # RETRY LOGIC: If result_type is not found, it might be due to a race condition with the scraper.
         # We wait for 2 seconds and try one more time.
         if not result:
             print(f"⚠️ Result data not ready for fight {fight_id}. Retrying in 2 seconds...")
             time.sleep(2)
-            f1_name, f2_name, result = get_fight_result_details(supabase_url, headers, fight_id)
+            f1_name, f2_name, result = db_manager.get_fight_result_details(fight_id)
 
-        method_type = fight_data.get('method_type', 'Decision')
+        method_type = fight_data.get('method_type', '')
         method_detail = fight_data.get('method_detail', '')
         method_str = f"{method_type} - {method_detail}" if method_detail else method_type
 
         # Customize title/body based on result type
         if result == "DRAW":
-            title = f"Draw: {f1_name} vs {f2_name} 🤝"
+            title = f"Draw: {f1_name} vs {f2_name}"
             message = f"Result: {method_str}"
         elif result == "NC":
-            title = f"No Contest: {f1_name} vs {f2_name} 🚫"
+            title = f"No Contest: {f1_name} vs {f2_name}"
             message = f"Result: {method_str}"
         elif result == "WIN":
-            title = f"{f1_name} defeated {f2_name} 🏆"
+            title = f"{f1_name} defeated {f2_name}"
             message = f"by {method_str}"
         else:
-            title = "Fight Concluded! 🥊"
+            title = "Fight Concluded!"
             message = f"Method: {method_str}"
 
         send_fcm_notification(
@@ -53,7 +47,7 @@ def handle_fight_result(supabase_url, headers, fight_data):
         )
 
 
-def handle_next_fight_starting(supabase_url, headers, fight_data):
+def handle_next_fight_starting(db_manager, fight_data):
     """
     Scenario 2: Send notification when the next fight is starting with fighter names.
     """
@@ -61,12 +55,12 @@ def handle_next_fight_starting(supabase_url, headers, fight_data):
     current_order = fight_data.get('fight_order')
 
     if current_order is not None and event_id:
-        next_fight_id = get_next_fight_id(supabase_url, headers, event_id, current_order + 1)
+        next_fight_id = db_manager.get_next_fight_id(event_id, current_order + 1)
 
         if next_fight_id:
-            next_tokens = get_tokens_for_fight(supabase_url, headers, next_fight_id)
+            next_tokens = db_manager.get_tokens_for_fight(next_fight_id)
             if next_tokens:
-                matchup = get_fight_matchup_names(supabase_url, headers, next_fight_id)
+                matchup = db_manager.get_fight_matchup_names(next_fight_id)
 
                 send_fcm_notification(
                     tokens=next_tokens,

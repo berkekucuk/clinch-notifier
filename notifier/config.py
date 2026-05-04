@@ -24,15 +24,17 @@ def get_supabase_config():
     }
 
 
-def get_supabase_headers(service_key):
-    """Build HTTP headers for Supabase API requests."""
-    return {
-        "apikey": service_key,
-        "Authorization": f"Bearer {service_key}",
-        "Content-Type": "application/json"
-    }
-
-
 def get_webhook_secret():
     """Get the webhook security token from environment variables."""
     return os.environ.get('WEBHOOK_SECRET')
+
+
+def verify_webhook_secret(headers, expected_token):
+    """Verify webhook authenticity using secret token."""
+    incoming_token = headers.get('x-webhook-secret') or headers.get('X-Webhook-Secret')
+
+    if not expected_token or incoming_token != expected_token:
+        print("Unauthorized Access!")
+        return False
+
+    return True

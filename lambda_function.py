@@ -1,10 +1,14 @@
 import json
-from notifier.config import initialize_firebase, get_supabase_config, get_supabase_headers, get_webhook_secret
-from notifier.security import verify_webhook_secret
+from notifier.config import initialize_firebase, get_supabase_config, get_webhook_secret, verify_webhook_secret
 from notifier.handlers import handle_fight_result, handle_next_fight_starting
+from notifier.supabase_manager import SupabaseManager
 
 # Firebase Admin SDK initialization (performed once globally)
 initialize_firebase()
+
+# Environment variables & Supabase manager initialization (performed once globally)
+config = get_supabase_config()
+db_manager = SupabaseManager(config['url'], config['service_key'])
 
 def lambda_handler(event, context):
     print(">>> MMA NOTIFICATION ENGINE AWOKE <<<")
@@ -15,12 +19,6 @@ def lambda_handler(event, context):
 
     if not verify_webhook_secret(headers, expected_token):
         return {"statusCode": 403, "body": "Unauthorized"}
-
-    # Environment variables
-    config = get_supabase_config()
-    SUPABASE_URL = config['url']
-    SERVICE_KEY = config['service_key']
-    HEADERS = get_supabase_headers(SERVICE_KEY)
 
     try:
         # Process the payload coming from Supabase
@@ -35,12 +33,12 @@ def lambda_handler(event, context):
         # ==========================================================
         # SCENARIO 1: SEND THE RESULT OF THE FINISHED FIGHT
         # ==========================================================
-        handle_fight_result(SUPABASE_URL, HEADERS, new_fight)
+        handle_fight_result(db_manager, new_fight)
 
         # ==========================================================
         # SCENARIO 2: THE NEXT FIGHT IS STARTING (With fighter names!)
         # ==========================================================
-        handle_next_fight_starting(SUPABASE_URL, HEADERS, new_fight)
+        handle_next_fight_starting(db_manager, new_fight)
 
         return {"statusCode": 200, "body": "Success"}
 
