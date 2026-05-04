@@ -15,20 +15,24 @@ def mask_token(token):
 
 def send_fcm_notification(tokens, title, body, image_url, data):
     """Send FCM notification to multiple devices with high priority settings."""
-    try:
-        if not tokens:
-            print("ℹ️ No tokens to send.")
-            return
+    if not tokens:
+        print("ℹ️ No tokens to send.")
+        return
 
-        # Message configuration, including high-priority settings
+    chunk_size = 500
+    total_sent = 0
+
+    for i in range(0, len(tokens), chunk_size):
+        chunk = tokens[i:i + chunk_size]
+
         msg = messaging.MulticastMessage(
+            tokens=chunk,
+            data=data,
             notification=messaging.Notification(
                 title=title,
                 body=body,
                 image=image_url
             ),
-            data=data,
-            tokens=tokens,
             android=messaging.AndroidConfig(
                 priority='high',
                 notification=messaging.AndroidNotification(sound='default')
@@ -39,22 +43,13 @@ def send_fcm_notification(tokens, title, body, image_url, data):
             )
         )
 
-        # New function for v7+: send_each_for_multicast
-        response = messaging.send_each_for_multicast(msg)
-        print(f"✅ Sent {response.success_count} notifications. Errors: {response.failure_count}")
+        try:
+            response = messaging.send_each_for_multicast(msg)
+            total_sent += response.success_count
+            print(f"📦 Chunk {i//chunk_size + 1}: {response.success_count} successful, {response.failure_count} failed.")
 
-        if response.failure_count:
-            for index, result in enumerate(response.responses):
-                if result.success:
-                    continue
+        except Exception as e:
+            print(f"❌ Critical error in chunk delivery: {e}")
 
-                token = tokens[index] if index < len(tokens) else "<unknown-token>"
-                error = result.exception
-                print(
-                    f"❌ FCM token failed: token={mask_token(token)}, "
-                    f"code={getattr(error, 'code', 'unknown')}, "
-                    f"message={error}"
-                )
+    print(f"🏁 Total Successful Deliveries: {total_sent} / {len(tokens)}")
 
-    except Exception as e:
-        print(f"❌ FCM Sending Error: {e}")

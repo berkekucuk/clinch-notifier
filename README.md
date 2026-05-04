@@ -1,6 +1,6 @@
 # Lambda Notifier
 
-Lambda Notifier is a push notification service for mma-app.
+Lambda Notifier is a push notification service for Clinch.
 
 It runs on AWS Lambda and is containerized with Docker.
 
