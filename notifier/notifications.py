@@ -48,8 +48,19 @@ def send_fcm_notification(tokens, title, body, image_url, data):
             total_sent += response.success_count
             print(f"📦 Chunk {i//chunk_size + 1}: {response.success_count} successful, {response.failure_count} failed.")
 
+            if response.failure_count > 0:
+                for idx, resp in enumerate(response.responses):
+                    if not resp.success:
+                        failed_token = chunk[idx]
+                        masked = mask_token(failed_token)
+                        err = resp.exception
+                        err_code = getattr(err, 'code', 'UNKNOWN_CODE')
+                        err_msg = getattr(err, 'message', str(err))
+                        print(f"   ⚠️ Token: {masked} failed | Error Code: {err_code} | Reason: {err_msg}")
+
         except Exception as e:
-            print(f"❌ Critical error in chunk delivery: {e}")
+            err_code = getattr(e, 'code', 'UNKNOWN_CODE')
+            print(f"❌ Critical error in chunk delivery: {e} | Error Code: {err_code}")
 
     print(f"🏁 Total Successful Deliveries: {total_sent} / {len(tokens)}")
 
