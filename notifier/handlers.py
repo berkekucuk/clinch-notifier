@@ -44,7 +44,6 @@ def handle_fight_result(db_manager, fight_data):
                 tokens=current_tokens['android'],
                 title=title,
                 body=message,
-                image_url=None,
                 data={"fight_id": fight_id, "type": "RESULT"}
             )
             
@@ -77,7 +76,6 @@ def handle_next_fight_starting(db_manager, fight_data):
                         tokens=next_tokens['android'],
                         title="Next Fight Starting! 🔥",
                         body=f"{matchup}",
-                        image_url=None,
                         data={"fight_id": next_fight_id, "type": "START"}
                     )
                     
@@ -88,3 +86,51 @@ def handle_next_fight_starting(db_manager, fight_data):
                         body=f"{matchup}",
                         data={"fight_id": next_fight_id, "type": "START"}
                     )
+
+
+def handle_manual_notification(db_manager, payload):
+    """
+    Scenario 3: Send manual notification to all users or specific users.
+    """
+    title = payload.get('title')
+    body = payload.get('body')
+    data = payload.get('data', {})
+
+    if not title or not body:
+        print("⚠️ Title or body missing in manual notification request. Skipping.")
+        return
+
+    target = payload.get('target', 'all')
+    
+    if target == 'users':
+        user_ids = payload.get('user_ids', [])
+        tokens = db_manager.get_device_tokens_for_users(user_ids)
+    else:
+        tokens = db_manager.get_all_device_tokens()
+
+    android_tokens = tokens.get('android', [])
+    ios_tokens = tokens.get('ios', [])
+
+    if not android_tokens and not ios_tokens:
+        print("ℹ️ No target tokens found for manual notification.")
+        return
+
+    # Set dynamic notification type in payload data if not present
+    if 'type' not in data:
+        data['type'] = 'MANUAL'
+
+    if android_tokens:
+        send_fcm_notification(
+            tokens=android_tokens,
+            title=title,
+            body=body,
+            data=data
+        )
+
+    if ios_tokens:
+        send_apns_notification(
+            tokens=ios_tokens,
+            title=title,
+            body=body,
+            data=data
+        )

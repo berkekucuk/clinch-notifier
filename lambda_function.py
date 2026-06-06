@@ -1,6 +1,6 @@
 import json
 from notifier.config import initialize_firebase, get_supabase_config, get_webhook_secret, verify_webhook_secret
-from notifier.handlers import handle_fight_result, handle_next_fight_starting
+from notifier.handlers import handle_fight_result, handle_next_fight_starting, handle_manual_notification
 from notifier.supabase_manager import SupabaseManager
 
 # Firebase Admin SDK initialization (performed once globally)
@@ -23,6 +23,13 @@ def lambda_handler(event, context):
     try:
         # Process the payload coming from Supabase
         body = json.loads(event.get('body', '{}'))
+
+        # Check if this is a manual notification request
+        if body.get('action') == 'manual_notification':
+            print("📣 Received manual notification request. Processing...")
+            handle_manual_notification(db_manager, body)
+            return {"statusCode": 200, "body": "Manual notification processed"}
+
         new_fight = body.get('record', {})
 
         fight_id = new_fight.get('fight_id')

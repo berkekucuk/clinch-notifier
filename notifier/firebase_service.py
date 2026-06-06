@@ -3,7 +3,7 @@ from firebase_admin import messaging
 from .utils import mask_token
 
 
-def send_fcm_notification(tokens, title, body, image_url, data):
+def send_fcm_notification(tokens, title, body, data):
     """Send FCM notification to multiple devices with high priority settings."""
     if not tokens:
         print("ℹ️ No FCM tokens to send.")
@@ -22,7 +22,6 @@ def send_fcm_notification(tokens, title, body, image_url, data):
             notification=messaging.Notification(
                 title=title,
                 body=body,
-                image=image_url
             ),
             android=messaging.AndroidConfig(
                 priority='high',

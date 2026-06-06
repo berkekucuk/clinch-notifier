@@ -84,3 +84,40 @@ class SupabaseManager:
         return "Upcoming Match"
 
 
+    def get_all_device_tokens(self):
+        """Retrieve all registered device tokens, categorized by platform."""
+        res = self.client.table("user_device_tokens").select("fcm_token,platform").execute()
+        tokens = {'android': [], 'ios': []}
+        if res.data:
+            for t in res.data:
+                token = t.get('fcm_token')
+                platform = str(t.get('platform', '')).lower()
+                if not token:
+                    continue
+                if platform == 'ios':
+                    tokens['ios'].append(token)
+                else:
+                    tokens['android'].append(token)
+        return tokens
+
+
+    def get_device_tokens_for_users(self, user_ids):
+        """Retrieve device tokens for specific user IDs, categorized by platform."""
+        if not user_ids:
+            return {'android': [], 'ios': []}
+        res = self.client.table("user_device_tokens").select("fcm_token,platform").in_("user_id", user_ids).execute()
+        tokens = {'android': [], 'ios': []}
+        if res.data:
+            for t in res.data:
+                token = t.get('fcm_token')
+                platform = str(t.get('platform', '')).lower()
+                if not token:
+                    continue
+                if platform == 'ios':
+                    tokens['ios'].append(token)
+                else:
+                    tokens['android'].append(token)
+        return tokens
+
+
+
