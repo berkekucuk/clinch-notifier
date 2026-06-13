@@ -1,6 +1,7 @@
 """Apple Push Notification service (APNs) handling."""
 import os
 import time
+import asyncio
 import httpx
 import jwt
 from .utils import mask_token
@@ -57,12 +58,24 @@ def get_apns_base_url():
     use_sandbox = os.getenv("APNS_USE_SANDBOX", "false").lower() == "true"
     return "https://api.sandbox.push.apple.com" if use_sandbox else "https://api.push.apple.com"
 
-def send_apns_notification(tokens, title, body, data):
-    """Send APNs notification to multiple iOS devices using HTTP/2."""
-    if not tokens:
-        print("ℹ️ No APN tokens to send.")
-        return
+async def send_single_apns(client, token, base_url, headers, apns_payload):
+    """Send a single APNs request asynchronously."""
+    url = f"{base_url}/3/device/{token}"
+    try:
+        response = await client.post(url, headers=headers, json=apns_payload)
+        if response.status_code == 200:
+            return True, token, None
+        else:
+            masked = mask_token(token)
+            # 400 BadDeviceToken or 410 Unregistered
+            is_invalid = response.status_code in [400, 410]
+            return False, token, {"error": f"APN Token: {masked} failed | Status: {response.status_code} | Reason: {response.text}", "is_invalid": is_invalid}
+    except Exception as e:
+        masked = mask_token(token)
+        return False, token, {"error": f"APN Token: {masked} exception | Reason: {e}", "is_invalid": False}
 
+async def send_apns_notification_async(tokens, title, body, data):
+    """Perform parallel APNs delivery using httpx.AsyncClient."""
     # Load credentials
     private_key = os.getenv("APNS_PRIVATE_KEY")
     key_id = os.getenv("APNS_KEY_ID")
@@ -71,42 +84,53 @@ def send_apns_notification(tokens, title, body, data):
 
     if not all([private_key, key_id, team_id, topic]):
         print("⚠️ APNs credentials missing in environment variables. Skipping APN delivery.")
-        return
+        return []
 
     # Generate JWT
     jwt_token = get_apns_jwt(private_key, key_id, team_id)
     if not jwt_token:
-        return
+        return []
 
     # Build Request parameters
     apns_payload = build_apns_payload(title, body, data)
     headers = get_apns_headers(topic, jwt_token)
     base_url = get_apns_base_url()
 
-    total_sent = 0
-    total_failed = 0
-
     try:
-        # Deliver via HTTP/2
-        with httpx.Client(http2=True) as client:
-            for token in tokens:
-                url = f"{base_url}/3/device/{token}"
-                try:
-                    response = client.post(url, headers=headers, json=apns_payload)
-                    if response.status_code == 200:
-                        total_sent += 1
-                    else:
-                        total_failed += 1
-                        masked = mask_token(token)
-                        print(f"   ⚠️ APN Token: {masked} failed | Status: {response.status_code} | Reason: {response.text}")
-                except Exception as e:
-                    total_failed += 1
-                    masked = mask_token(token)
-                    print(f"   ⚠️ APN Token: {masked} exception | Reason: {e}")
+        invalid_tokens = []
+        async with httpx.AsyncClient(http2=True) as client:
+            tasks = [
+                send_single_apns(client, token, base_url, headers, apns_payload)
+                for token in tokens
+            ]
+            results = await asyncio.gather(*tasks)
+
+        total_sent = 0
+        for success, token, err_info in results:
+            if success:
+                total_sent += 1
+            else:
+                print(f"   ⚠️ {err_info['error']}")
+                if err_info.get('is_invalid'):
+                    invalid_tokens.append(token)
+
+        total_failed = len(tokens) - total_sent
 
         print(f"🏁 Total Successful APN Deliveries: {total_sent} / {len(tokens)}")
         if total_failed > 0:
             print(f"   ❌ Failed APN Deliveries: {total_failed}")
+            
+        return invalid_tokens
 
     except Exception as e:
         print(f"❌ Critical error in APN delivery: {e}")
+        return []
+
+def send_apns_notification(tokens, title, body, data):
+    """Send APNs notification to multiple iOS devices using HTTP/2 in parallel."""
+    if not tokens:
+        print("ℹ️ No APN tokens to send.")
+        return []
+
+    return asyncio.run(send_apns_notification_async(tokens, title, body, data))
+

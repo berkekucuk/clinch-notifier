@@ -3,6 +3,8 @@ import json
 import os
 import firebase_admin
 from firebase_admin import credentials
+import requests
+from requests.adapters import HTTPAdapter
 
 
 def initialize_firebase():
@@ -25,8 +27,14 @@ def initialize_firebase():
             print(f"DEBUG: Private Key Prefix: {private_key[:30]}...")
 
             cred = credentials.Certificate(cred_json)
-            firebase_admin.initialize_app(cred)
-            print("✅ Firebase Admin SDK successfully initialized.")
+            
+            # Configure a custom HTTP client with a larger connection pool
+            session = requests.Session()
+            adapter = HTTPAdapter(pool_connections=100, pool_maxsize=100)
+            session.mount('https://', adapter)
+
+            firebase_admin.initialize_app(cred, options={'http_client': session})
+            print("✅ Firebase Admin SDK successfully initialized with custom connection pool.")
 
         except json.JSONDecodeError as je:
             print(f"❌ JSON Format Error: Environment variable is not a valid JSON! {je}")

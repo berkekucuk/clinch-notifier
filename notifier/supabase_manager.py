@@ -120,4 +120,19 @@ class SupabaseManager:
         return tokens
 
 
-
+    def remove_invalid_tokens(self, tokens_to_remove):
+        """Remove invalid tokens from the database."""
+        if not tokens_to_remove:
+            return
+            
+        # Process in chunks of 100 to avoid URL length or other limits
+        chunk_size = 100
+        for i in range(0, len(tokens_to_remove), chunk_size):
+            chunk = tokens_to_remove[i:i + chunk_size]
+            try:
+                res = self.client.table("user_device_tokens").delete().in_("fcm_token", chunk).execute()
+                # Try to determine how many were actually deleted if res data is available
+                count = len(res.data) if hasattr(res, 'data') and res.data else len(chunk)
+                print(f"🗑️ Cleaned up {count} invalid device tokens from Supabase.")
+            except Exception as e:
+                print(f"❌ Error removing invalid tokens: {e}")

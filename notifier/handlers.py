@@ -119,18 +119,27 @@ def handle_manual_notification(db_manager, payload):
     if 'type' not in data:
         data['type'] = 'MANUAL'
 
+    invalid_tokens = []
+    
     if android_tokens:
-        send_fcm_notification(
+        fcm_invalid = send_fcm_notification(
             tokens=android_tokens,
             title=title,
             body=body,
             data=data
         )
+        if fcm_invalid:
+            invalid_tokens.extend(fcm_invalid)
 
     if ios_tokens:
-        send_apns_notification(
+        apns_invalid = send_apns_notification(
             tokens=ios_tokens,
             title=title,
             body=body,
             data=data
         )
+        if apns_invalid:
+            invalid_tokens.extend(apns_invalid)
+
+    if invalid_tokens:
+        db_manager.remove_invalid_tokens(invalid_tokens)

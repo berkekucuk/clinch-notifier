@@ -7,11 +7,12 @@ def send_fcm_notification(tokens, title, body, data):
     """Send FCM notification to multiple devices with high priority settings."""
     if not tokens:
         print("ℹ️ No FCM tokens to send.")
-        return
+        return []
 
     chunk_size = 500
     total_sent = 0
     total_failed = 0
+    invalid_tokens = []
 
     for i in range(0, len(tokens), chunk_size):
         chunk = tokens[i:i + chunk_size]
@@ -44,6 +45,9 @@ def send_fcm_notification(tokens, title, body, data):
                         err_code = getattr(err, 'code', 'UNKNOWN_CODE')
                         err_msg = getattr(err, 'message', str(err))
                         print(f"   ⚠️ FCM Token: {masked} failed | Error Code: {err_code} | Reason: {err_msg}")
+                        
+                        if err_code in ['NOT_FOUND', 'UNREGISTERED']:
+                            invalid_tokens.append(failed_token)
 
         except Exception as e:
             err_code = getattr(e, 'code', 'UNKNOWN_CODE')
@@ -53,4 +57,4 @@ def send_fcm_notification(tokens, title, body, data):
     if total_failed > 0:
         print(f"   ❌ Failed FCM Deliveries: {total_failed}")
 
-
+    return invalid_tokens
