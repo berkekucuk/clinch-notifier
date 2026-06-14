@@ -3,7 +3,7 @@ from firebase_admin import messaging
 from .utils import mask_token
 
 
-def send_fcm_notification(tokens, title, body, data):
+def send_fcm_notification(tokens, title=None, body=None, data=None, is_alarm=False):
     """Send FCM notification to multiple devices with high priority settings."""
     if not tokens:
         print("ℹ️ No FCM tokens to send.")
@@ -17,18 +17,25 @@ def send_fcm_notification(tokens, title, body, data):
     for i in range(0, len(tokens), chunk_size):
         chunk = tokens[i:i + chunk_size]
 
-        msg = messaging.MulticastMessage(
-            tokens=chunk,
-            data=data,
-            notification=messaging.Notification(
-                title=title,
-                body=body,
-            ),
-            android=messaging.AndroidConfig(
-                priority='high',
-                notification=messaging.AndroidNotification(sound='default')
+        if is_alarm:
+            msg = messaging.MulticastMessage(
+                tokens=chunk,
+                data=data,
+                android=messaging.AndroidConfig(priority='high')
             )
-        )
+        else:
+            msg = messaging.MulticastMessage(
+                tokens=chunk,
+                data=data,
+                notification=messaging.Notification(
+                    title=title,
+                    body=body,
+                ),
+                android=messaging.AndroidConfig(
+                    priority='high',
+                    notification=messaging.AndroidNotification(sound='default')
+                )
+            )
 
         try:
             response = messaging.send_each_for_multicast(msg)
