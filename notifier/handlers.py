@@ -11,7 +11,9 @@ def handle_fight_result(db_manager, fight_data):
     fight_id = fight_data.get('fight_id')
     current_tokens = db_manager.get_tokens_for_fight(fight_id)
 
-    if current_tokens.get('android') or current_tokens.get('ios'):
+    android_all = current_tokens.get('android_standard', []) + current_tokens.get('android_alarm', [])
+    
+    if android_all or current_tokens.get('ios'):
         f1_name, f2_name, result = db_manager.get_fight_result_details(fight_id)
 
         # RETRY LOGIC: If result_type is not found, it might be due to a race condition with the scraper.
@@ -39,9 +41,9 @@ def handle_fight_result(db_manager, fight_data):
             title = "Fight Concluded!"
             message = f"Method: {method_str}"
 
-        if current_tokens.get('android'):
+        if android_all:
             send_fcm_notification(
-                tokens=current_tokens['android'],
+                tokens=android_all,
                 title=title,
                 body=message,
                 data={"fight_id": fight_id, "type": "RESULT"}
@@ -68,15 +70,24 @@ def handle_next_fight_starting(db_manager, fight_data):
 
         if next_fight_id:
             next_tokens = db_manager.get_tokens_for_fight(next_fight_id)
-            if next_tokens.get('android') or next_tokens.get('ios'):
+            if next_tokens.get('android_standard') or next_tokens.get('android_alarm') or next_tokens.get('ios'):
                 matchup = db_manager.get_fight_matchup_names(next_fight_id)
 
-                if next_tokens.get('android'):
+                if next_tokens.get('android_standard'):
                     send_fcm_notification(
-                        tokens=next_tokens['android'],
+                        tokens=next_tokens['android_standard'],
                         title="Next Fight Starting! 🔥",
                         body=f"{matchup}",
                         data={"fight_id": next_fight_id, "type": "START"}
+                    )
+                    
+                if next_tokens.get('android_alarm'):
+                    send_fcm_notification(
+                        tokens=next_tokens['android_alarm'],
+                        title="Next Fight Starting! 🔥",
+                        body=f"{matchup}",
+                        data={"fight_id": next_fight_id, "type": "ALARM", "matchup": matchup},
+                        is_alarm=True
                     )
                     
                 if next_tokens.get('ios'):

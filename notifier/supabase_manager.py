@@ -11,17 +11,21 @@ class SupabaseManager:
         res = self.client.rpc('get_tokens_by_fight', {'p_fight_id': fight_id}) \
             .range(0, 4999) \
             .execute()
-        tokens = {'android': [], 'ios': []}
+        tokens = {'android_standard': [], 'android_alarm': [], 'ios': []}
         if res.data:
             for t in res.data:
                 token = t.get('fcm_token')
                 platform = str(t.get('platform', '')).lower()
+                is_alarm = bool(t.get('is_alarm', False))
                 if not token:
                     continue
                 if platform == 'ios':
                     tokens['ios'].append(token)
                 else:
-                    tokens['android'].append(token)
+                    if is_alarm:
+                        tokens['android_alarm'].append(token)
+                    else:
+                        tokens['android_standard'].append(token)
         return tokens
 
     def get_fight_result_details(self, fight_id):
