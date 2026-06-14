@@ -1,6 +1,11 @@
 import json
 from notifier.config import initialize_firebase, get_supabase_config, get_webhook_secret, verify_webhook_secret
-from notifier.handlers import handle_fight_result, handle_next_fight_starting, handle_manual_notification
+from notifier.handlers import (
+    handle_fight_result, 
+    handle_next_fight_starting, 
+    handle_manual_notification,
+    handle_event_went_live
+)
 from notifier.supabase_manager import SupabaseManager
 
 # Firebase Admin SDK initialization (performed once globally)
@@ -23,31 +28,54 @@ def lambda_handler(event, context):
     try:
         # Process the payload coming from Supabase
         body = json.loads(event.get('body', '{}'))
+        print("Webhook Payload:", json.dumps(body))
+        
+        action = body.get('action')
+        table_name = body.get('table')
+        record = body.get('record', {})
 
-        # Check if this is a manual notification request
-        if body.get('action') == 'manual_notification':
-            print("📣 Received manual notification request. Processing...")
+        # ==========================================================
+        # SCENARIO 1: MANUAL NOTIFICATION (Specific Users or All)
+        # ==========================================================
+        if action == 'manual_notification':
+            print("📣 Processing manual notification request...")
             handle_manual_notification(db_manager, body)
             return {"statusCode": 200, "body": "Manual notification processed"}
 
-        new_fight = body.get('record', {})
-
-        fight_id = new_fight.get('fight_id')
-
-        if not fight_id:
-            return {"statusCode": 200, "body": "No fight_id found in record."}
+        # ==========================================================
+        # SCENARIO 2: EVENT WENT LIVE (Trigger 1st Fight Alarm)
+        # ==========================================================
+        if table_name == 'events':
+            event_id = record.get('event_id')
+            status = record.get('status')
+            
+            if event_id and status == 'live':
+                print(f"🔥 Event {event_id} went live! Triggering first fight alarm...")
+                handle_event_went_live(db_manager, event_id)
+                
+            return {"statusCode": 200, "body": "Event update processed"}
 
         # ==========================================================
-        # SCENARIO 1: SEND THE RESULT OF THE FINISHED FIGHT
+        # SCENARIO 3: FIGHT FINISHED (Send Result & Trigger Next Fight Alarm)
         # ==========================================================
-        handle_fight_result(db_manager, new_fight)
+        if table_name == 'fights':
+            fight_id = record.get('fight_id')
+            if not fight_id:
+                return {"statusCode": 200, "body": "No fight_id found in record."}
+
+            # A. Send the result of the finished fight silently as a standard notification
+            handle_fight_result(db_manager, record)
+
+            # B. Trigger the start alarm for the next fight (fight_order + 1)
+            handle_next_fight_starting(db_manager, record)
+
+            return {"statusCode": 200, "body": "Fight updates processed"}
 
         # ==========================================================
-        # SCENARIO 2: THE NEXT FIGHT IS STARTING (With fighter names!)
+        # UNKNOWN SCENARIO
         # ==========================================================
-        handle_next_fight_starting(db_manager, new_fight)
-
-        return {"statusCode": 200, "body": "Success"}
+        print(f"⚠️ Unknown payload received. Table: {table_name}, Action: {action}")
+        return {"statusCode": 200, "body": "Payload ignored"}
 
     except Exception as e:
         print(f"💥 GLOBAL ERROR: {str(e)}")

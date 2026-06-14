@@ -70,8 +70,8 @@ class SupabaseManager:
         return None, None, None
 
 
-    def get_next_fight_id(self, event_id, n_order):
-        """Get the fight ID for the next fight in the event."""
+    def get_fight_id_by_order(self, event_id, n_order):
+        """Get the fight ID for a specific fight order in the event."""
         res = self.client.table("fights").select("fight_id").eq("event_id", event_id).eq("fight_order", n_order).limit(1).execute()
         return res.data[0]['fight_id'] if res.data else None
 
