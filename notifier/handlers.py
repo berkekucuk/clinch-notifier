@@ -7,13 +7,12 @@ from .apns_service import send_apns_notification
 def handle_fight_result(db_manager, fight_data):
     """
     Scenario 1: Send notification for the result of the finished fight.
+    (Disabled for Android, sending to iOS only)
     """
     fight_id = fight_data.get('fight_id')
     current_tokens = db_manager.get_tokens_for_fight(fight_id)
 
-    android_all = current_tokens.get('android_standard', []) + current_tokens.get('android_alarm', [])
-    
-    if android_all or current_tokens.get('ios'):
+    if current_tokens.get('ios'):
         f1_name, f2_name, result = db_manager.get_fight_result_details(fight_id)
 
         # RETRY LOGIC: If result_type is not found, it might be due to a race condition with the scraper.
@@ -40,22 +39,13 @@ def handle_fight_result(db_manager, fight_data):
         else:
             title = "Fight Concluded!"
             message = f"Method: {method_str}"
-
-        if android_all:
-            send_fcm_notification(
-                tokens=android_all,
-                title=title,
-                body=message,
-                data={"fight_id": fight_id, "type": "RESULT"}
-            )
             
-        if current_tokens.get('ios'):
-            send_apns_notification(
-                tokens=current_tokens['ios'],
-                title=title,
-                body=message,
-                data={"fight_id": fight_id, "type": "RESULT"}
-            )
+        send_apns_notification(
+            tokens=current_tokens['ios'],
+            title=title,
+            body=message,
+            data={"fight_id": fight_id, "type": "RESULT"}
+        )
 
 
 def handle_next_fight_starting(db_manager, fight_data):
