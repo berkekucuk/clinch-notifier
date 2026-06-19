@@ -66,9 +66,7 @@ def handle_next_fight_starting(db_manager, fight_data):
                 if next_tokens.get('android_standard'):
                     send_fcm_notification(
                         tokens=next_tokens['android_standard'],
-                        title="Next Fight Starting! 🔥",
-                        body=f"{matchup}",
-                        data={"fight_id": next_fight_id, "type": "START"}
+                        data={"fight_id": next_fight_id, "type": "START", "matchup": matchup}
                     )
                     
                 if next_tokens.get('android_alarm'):
@@ -157,9 +155,7 @@ def handle_event_went_live(db_manager, event_id):
             if first_tokens.get('android_standard'):
                 send_fcm_notification(
                     tokens=first_tokens['android_standard'],
-                    title="Fight starting 🔥",
-                    body=f"{matchup}",
-                    data={"fight_id": first_fight_id, "type": "START"}
+                    data={"fight_id": first_fight_id, "type": "START", "matchup": matchup}
                 )
                 
             if first_tokens.get('android_alarm'):
