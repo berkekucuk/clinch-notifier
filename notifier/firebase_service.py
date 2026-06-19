@@ -17,7 +17,7 @@ def send_fcm_notification(tokens, title=None, body=None, data=None, is_alarm=Fal
     for i in range(0, len(tokens), chunk_size):
         chunk = tokens[i:i + chunk_size]
 
-        if is_alarm:
+        if is_alarm or (not title and not body):
             msg = messaging.MulticastMessage(
                 tokens=chunk,
                 data=data,
