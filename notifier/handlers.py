@@ -107,16 +107,13 @@ def handle_manual_notification(db_manager, payload):
         print("⚠️ Title or body missing in manual notification request. Skipping.")
         return
 
-    target = payload.get('target', 'all')
+    target = payload.get('target', 'all').lower()
     
-    if target == 'users':
-        user_ids = payload.get('user_ids', [])
-        tokens = db_manager.get_device_tokens_for_users(user_ids)
-    else:
-        tokens = db_manager.get_all_device_tokens()
+    tokens = (db_manager.get_device_tokens_for_users(payload.get('user_ids', []))
+              if target == 'users' else db_manager.get_all_device_tokens())
 
-    android_tokens = tokens.get('android', [])
-    ios_tokens = tokens.get('ios', [])
+    android_tokens = tokens.get('android', []) if target != 'ios' else []
+    ios_tokens     = tokens.get('ios', [])     if target != 'android' else []
 
     if not android_tokens and not ios_tokens:
         print("ℹ️ No target tokens found for manual notification.")
