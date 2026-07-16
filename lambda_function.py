@@ -64,7 +64,7 @@ def lambda_handler(event, context):
                 return {"statusCode": 200, "body": "No fight_id found in record."}
 
             # A. Send the result of the finished fight silently as a standard notification
-            handle_fight_result(db_manager, record)
+            #handle_fight_result(db_manager, record)
 
             # B. Trigger the start alarm for the next fight (fight_order + 1)
             handle_next_fight_starting(db_manager, record)
