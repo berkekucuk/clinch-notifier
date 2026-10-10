@@ -105,8 +105,12 @@ class SupabaseManager:
         return tokens
 
 
-    def get_device_tokens_for_users(self, user_ids):
-        """Retrieve device tokens for specific user IDs, categorized by platform."""
+    def get_device_tokens_for_usernames(self, usernames):
+        """Retrieve device tokens for specific usernames, categorized by platform."""
+        if not usernames:
+            return {'android': [], 'ios': []}
+        profiles = self.client.table("profiles").select("id").in_("username", usernames).execute()
+        user_ids = [p['id'] for p in (profiles.data or []) if p.get('id')]
         if not user_ids:
             return {'android': [], 'ios': []}
         res = self.client.table("user_device_tokens").select("fcm_token,platform").in_("user_id", user_ids).execute()

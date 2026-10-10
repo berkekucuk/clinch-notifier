@@ -109,7 +109,7 @@ def handle_manual_notification(db_manager, payload):
 
     target = payload.get('target', 'all').lower()
     
-    tokens = (db_manager.get_device_tokens_for_users(payload.get('user_ids', []))
+    tokens = (db_manager.get_device_tokens_for_usernames(payload.get('usernames', []))
               if target == 'users' else db_manager.get_all_device_tokens())
 
     android_tokens = tokens.get('android', []) if target != 'ios' else []
