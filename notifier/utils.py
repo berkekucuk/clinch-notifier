@@ -9,3 +9,11 @@ def mask_token(token):
         return f"{token[:2]}***{token[-2:]}"
 
     return f"{token[:6]}***{token[-4:]}"
+
+
+def is_apns_token(token):
+    """Return True if the token is a raw APNs device token (hex string) rather than an FCM token."""
+    if not token:
+        return False
+
+    return all(c in "0123456789abcdefABCDEF" for c in token)

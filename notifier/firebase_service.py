@@ -34,6 +34,12 @@ def send_fcm_notification(tokens, title=None, body=None, data=None, is_alarm=Fal
                 android=messaging.AndroidConfig(
                     priority='high',
                     notification=messaging.AndroidNotification(sound='default')
+                ),
+                apns=messaging.APNSConfig(
+                    headers={'apns-priority': '10'},
+                    payload=messaging.APNSPayload(
+                        aps=messaging.Aps(sound='default')
+                    )
                 )
             )
 
