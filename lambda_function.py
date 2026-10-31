@@ -1,4 +1,5 @@
 import json
+import logging
 from notifier.config import initialize_firebase, get_supabase_config, get_webhook_secret, verify_webhook_secret
 from notifier.handlers import (
     handle_fight_result, 
@@ -8,6 +9,8 @@ from notifier.handlers import (
 )
 from notifier.supabase_manager import SupabaseManager
 
+logger = logging.getLogger("notifier.lambda")
+
 # Firebase Admin SDK initialization (performed once globally)
 initialize_firebase()
 
@@ -16,7 +19,7 @@ config = get_supabase_config()
 db_manager = SupabaseManager(config['url'], config['service_key'])
 
 def lambda_handler(event, context):
-    print(">>> MMA NOTIFICATION ENGINE AWOKE <<<")
+    logger.info(">>> CLINCH NOTIFICATION ENGINE AWOKE <<<")
 
     # --- 1. SECURITY CHECK (Webhook Secret) ---
     headers = event.get('headers', {})
@@ -28,7 +31,7 @@ def lambda_handler(event, context):
     try:
         # Process the payload coming from Supabase
         body = json.loads(event.get('body', '{}'))
-        print("Webhook Payload:", json.dumps(body))
+        logger.info("Webhook Payload: %s", json.dumps(body))
         
         action = body.get('action')
         table_name = body.get('table')
@@ -38,7 +41,7 @@ def lambda_handler(event, context):
         # SCENARIO 1: MANUAL NOTIFICATION (Specific Users or All)
         # ==========================================================
         if action == 'manual_notification':
-            print("📣 Processing manual notification request...")
+            logger.info("📣 Processing manual notification request...")
             handle_manual_notification(db_manager, body)
             return {"statusCode": 200, "body": "Manual notification processed"}
 
@@ -50,7 +53,7 @@ def lambda_handler(event, context):
             status = record.get('status')
             
             if event_id and status == 'live':
-                print(f"🔥 Event {event_id} went live! Triggering first fight alarm...")
+                logger.info("🔥 Event %s went live! Triggering first fight alarm...", event_id)
                 handle_event_went_live(db_manager, event_id)
                 
             return {"statusCode": 200, "body": "Event update processed"}
@@ -74,9 +77,11 @@ def lambda_handler(event, context):
         # ==========================================================
         # UNKNOWN SCENARIO
         # ==========================================================
-        print(f"⚠️ Unknown payload received. Table: {table_name}, Action: {action}")
+        logger.warning("⚠️ Unknown payload received. Table: %s, Action: %s", table_name, action)
         return {"statusCode": 200, "body": "Payload ignored"}
 
-    except Exception as e:
-        print(f"💥 GLOBAL ERROR: {str(e)}")
+    # Top-level boundary: any failure must be logged and answered with a clean 500.
+    # noinspection PyBroadException
+    except Exception:
+        logger.exception("💥 GLOBAL ERROR")
         return {"statusCode": 500, "body": "Internal Server Error"}

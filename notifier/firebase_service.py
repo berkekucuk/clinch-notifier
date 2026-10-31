@@ -1,13 +1,20 @@
 """Firebase Cloud Messaging (FCM) notification handling."""
-from firebase_admin import messaging
+import logging
+from collections import Counter
+from firebase_admin import exceptions, messaging
 from .utils import mask_token
+
+logger = logging.getLogger(__name__)
 
 
 def send_fcm_notification(tokens, title=None, body=None, data=None, is_alarm=False):
     """Send FCM notification to multiple devices with high priority settings."""
     if not tokens:
-        print("ℹ️ No FCM tokens to send.")
+        logger.info("ℹ️ No FCM tokens to send.")
         return []
+
+    data = data or {}
+    context = f"type={data.get('type')} fight_id={data.get('fight_id')}"
 
     chunk_size = 500
     total_sent = 0
@@ -16,6 +23,7 @@ def send_fcm_notification(tokens, title=None, body=None, data=None, is_alarm=Fal
 
     for i in range(0, len(tokens), chunk_size):
         chunk = tokens[i:i + chunk_size]
+        chunk_no = i // chunk_size + 1
 
         if is_alarm or (not title and not body):
             msg = messaging.MulticastMessage(
@@ -47,27 +55,42 @@ def send_fcm_notification(tokens, title=None, body=None, data=None, is_alarm=Fal
             response = messaging.send_each_for_multicast(msg)
             total_sent += response.success_count
             total_failed += response.failure_count
-            print(f"📦 FCM Chunk {i//chunk_size + 1}: {response.success_count} successful, {response.failure_count} failed.")
+            logger.info(
+                "📦 FCM chunk %d (%s): %d successful, %d failed.",
+                chunk_no, context, response.success_count, response.failure_count
+            )
 
             if response.failure_count > 0:
+                error_counts = Counter()
+                error_samples = {}
+
                 for idx, resp in enumerate(response.responses):
                     if not resp.success:
                         failed_token = chunk[idx]
-                        masked = mask_token(failed_token)
                         err = resp.exception
                         err_code = getattr(err, 'code', 'UNKNOWN_CODE')
-                        err_msg = getattr(err, 'message', str(err))
-                        print(f"   ⚠️ FCM Token: {masked} failed | Error Code: {err_code} | Reason: {err_msg}")
-                        
+                        error_counts[err_code] += 1
+                        error_samples.setdefault(
+                            err_code,
+                            f"{mask_token(failed_token)}: {getattr(err, 'message', str(err))}"
+                        )
+
                         if err_code in ['NOT_FOUND', 'UNREGISTERED']:
                             invalid_tokens.append(failed_token)
 
-        except Exception as e:
-            err_code = getattr(e, 'code', 'UNKNOWN_CODE')
-            print(f"❌ Critical error in FCM chunk delivery: {e} | Error Code: {err_code}")
+                for err_code, count in error_counts.items():
+                    logger.warning(
+                        "⚠️ FCM chunk %d (%s): %s x%d | Sample %s",
+                        chunk_no, context, err_code, count, error_samples[err_code]
+                    )
 
-    print(f"🏁 Total Successful FCM Deliveries: {total_sent} / {len(tokens)}")
+        except (exceptions.FirebaseError, ValueError):
+            total_failed += len(chunk)
+            logger.exception("❌ FCM chunk %d (%s) delivery failed for %d tokens", chunk_no, context, len(chunk))
+
     if total_failed > 0:
-        print(f"   ❌ Failed FCM Deliveries: {total_failed}")
+        logger.warning("🏁 FCM deliveries (%s): %d / %d successful, %d failed.", context, total_sent, len(tokens), total_failed)
+    else:
+        logger.info("🏁 FCM deliveries (%s): %d / %d successful.", context, total_sent, len(tokens))
 
     return invalid_tokens

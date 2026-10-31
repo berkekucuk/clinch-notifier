@@ -1,6 +1,9 @@
 """Event handlers for fight notifications."""
+import logging
 import time
 from .firebase_service import send_fcm_notification
+
+logger = logging.getLogger(__name__)
 
 
 def handle_fight_result(db_manager, fight_data):
@@ -18,7 +21,7 @@ def handle_fight_result(db_manager, fight_data):
         # RETRY LOGIC: If result_type is not found, it might be due to a race condition with the scraper.
         # We wait for 2 seconds and try one more time.
         if not result:
-            print(f"⚠️ Result data not ready for fight {fight_id}. Retrying in 2 seconds...")
+            logger.warning("⚠️ Result data not ready for fight %s. Retrying in 2 seconds...", fight_id)
             time.sleep(2)
             f1_name, f2_name, result = db_manager.get_fight_result_details(fight_id)
 
@@ -103,7 +106,7 @@ def handle_manual_notification(db_manager, payload):
     data = payload.get('data', {})
 
     if not title or not body:
-        print("⚠️ Title or body missing in manual notification request. Skipping.")
+        logger.warning("⚠️ Title or body missing in manual notification request. Skipping.")
         return
 
     target = payload.get('target', 'all').lower()
@@ -115,7 +118,7 @@ def handle_manual_notification(db_manager, payload):
     ios_tokens     = tokens.get('ios', [])     if target != 'android' else []
 
     if not android_tokens and not ios_tokens:
-        print("ℹ️ No target tokens found for manual notification.")
+        logger.info("ℹ️ No target tokens found for manual notification.")
         return
 
     # Set dynamic notification type in payload data if not present
