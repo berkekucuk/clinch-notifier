@@ -1,22 +1,6 @@
 """Event handlers for fight notifications."""
 import time
 from .firebase_service import send_fcm_notification
-from .apns_service import send_apns_notification
-from .utils import is_apns_token
-
-
-def send_ios_notification(tokens, title, body, data):
-    """Send iOS notification via APNs for legacy app versions and via FCM for newer ones."""
-    apns_tokens = [t for t in tokens if is_apns_token(t)]
-    fcm_tokens = [t for t in tokens if not is_apns_token(t)]
-
-    invalid_tokens = []
-    if fcm_tokens:
-        invalid_tokens.extend(send_fcm_notification(tokens=fcm_tokens, title=title, body=body, data=data) or [])
-    if apns_tokens:
-        invalid_tokens.extend(send_apns_notification(tokens=apns_tokens, title=title, body=body, data=data) or [])
-
-    return invalid_tokens
 
 
 def handle_fight_result(db_manager, fight_data):
@@ -65,7 +49,7 @@ def handle_fight_result(db_manager, fight_data):
             )
             
         if current_tokens.get('ios'):
-            send_ios_notification(
+            send_fcm_notification(
                 tokens=current_tokens['ios'],
                 title=title,
                 body=message,
@@ -102,7 +86,7 @@ def handle_next_fight_starting(db_manager, fight_data):
                     )
                     
                 if next_tokens.get('ios'):
-                    send_ios_notification(
+                    send_fcm_notification(
                         tokens=next_tokens['ios'],
                         title="Next Fight Starting! 🔥",
                         body=f"{matchup}",
@@ -151,7 +135,7 @@ def handle_manual_notification(db_manager, payload):
             invalid_tokens.extend(fcm_invalid)
 
     if ios_tokens:
-        ios_invalid = send_ios_notification(
+        ios_invalid = send_fcm_notification(
             tokens=ios_tokens,
             title=title,
             body=body,
@@ -188,7 +172,7 @@ def handle_event_went_live(db_manager, event_id):
                 )
                 
             if first_tokens.get('ios'):
-                send_ios_notification(
+                send_fcm_notification(
                     tokens=first_tokens['ios'],
                     title="Fight starting 🔥",
                     body=f"{matchup}",
