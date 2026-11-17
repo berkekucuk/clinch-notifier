@@ -1,4 +1,5 @@
 """Firebase Cloud Messaging (FCM) notification handling."""
+import asyncio
 import logging
 from collections import Counter
 from firebase_admin import exceptions, messaging
@@ -6,6 +7,7 @@ from .utils import mask_token
 
 logger = logging.getLogger(__name__)
 
+_loop = asyncio.new_event_loop()
 
 def send_fcm_notification(tokens, title=None, body=None, data=None, is_alarm=False):
     """Send FCM notification to multiple devices with high priority settings."""
@@ -52,7 +54,7 @@ def send_fcm_notification(tokens, title=None, body=None, data=None, is_alarm=Fal
             )
 
         try:
-            response = messaging.send_each_for_multicast(msg)
+            response = _loop.run_until_complete(messaging.send_each_for_multicast_async(msg))
             total_sent += response.success_count
             total_failed += response.failure_count
             logger.info(
